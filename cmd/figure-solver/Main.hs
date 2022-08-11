@@ -1,10 +1,12 @@
 module Main (main) where
 
+import Data.List (groupBy)
+import Data.Map.Strict qualified as Map
 import Options.Applicative (ParserInfo, execParser, fullDesc, help, helper, info, long, metavar, progDesc, strOption)
 import Options.Applicative qualified as Flags
-import Relude
-import Text.Megaparsec (Parsec, runParser)
-import Text.Megaparsec.Char (char)
+import Relude hiding (show)
+import Text.Megaparsec (Parsec, eof, errorBundlePretty, runParser)
+import Text.Megaparsec.Char (char, eol)
 import Text.Show (Show (show))
 
 newtype Options = Options
@@ -25,12 +27,19 @@ main = do
   parsed <- runParser puzzleP puzzleFile <$> readFileText puzzleFile
   puzzle <- case parsed of
     Right puzzle -> pure puzzle
-    Left err -> undefined
+    Left err -> putStrLn (errorBundlePretty err) >> exitFailure
+  print puzzle
   print $ viaNonEmpty head $ sortOn length $ solutions puzzle
 
 type Parser = Parsec Void Text
 
 data Tile = Green | Yellow | Purple | White
+
+instance Show Tile where
+  show Green = "G"
+  show Yellow = "Y"
+  show Purple = "P"
+  show White = "W"
 
 tileP :: Parser Tile
 tileP =
@@ -42,10 +51,21 @@ tileP =
 newtype Puzzle = Puzzle (Map (Int, Int) (Maybe Tile))
 
 instance Show Puzzle where
-  show = undefined
+  show (Puzzle p) =
+    intercalate "\n" $
+      reverse $
+        fmap (concatMap (showMTile . snd)) $
+          groupBy ((==) `on` snd . fst) $
+            sortOn (snd . fst) $ sortOn (fst . fst) $ Map.toList p
+    where
+      showMTile (Just t) = show t
+      showMTile Nothing = " "
 
 puzzleP :: Parser Puzzle
-puzzleP = undefined
+puzzleP = Puzzle . Map.fromList . concat <$> mapM rowP (reverse [0 .. 4]) <* eof
+  where
+    rowP :: Int -> Parser [((Int, Int), Maybe Tile)]
+    rowP row = (zip [(col, row) | col <- [0 ..]]) <$> replicateM 5 (Just <$> tileP) <* eol
 
 nextSteps :: Puzzle -> [(Int, Puzzle)]
 nextSteps = undefined
