@@ -1,0 +1,80 @@
+cabal-version: 3.0
+name:          figure-solver
+version:       0.1.0.0
+tested-with:   GHC ==9.0.2
+
+common lang
+  build-depends:
+    , base    ==4.15.1.0
+    , relude  ^>=1.0.0.1
+
+  default-language:   Haskell2010
+  default-extensions:
+    NoImplicitPrelude
+    Arrows
+    BangPatterns
+    BinaryLiterals
+    ConstrainedClassMethods
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveLift
+    DeriveTraversable
+    DerivingStrategies
+    DerivingVia
+    DuplicateRecordFields
+    EmptyCase
+    EmptyDataDeriving
+    ExistentialQuantification
+    ExplicitForAll
+    FlexibleContexts
+    FlexibleInstances
+    GADTSyntax
+    GeneralizedNewtypeDeriving
+    HexFloatLiterals
+    ImportQualifiedPost
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    NamedFieldPuns
+    NamedWildCards
+    NumericUnderscores
+    OverloadedLabels
+    OverloadedStrings
+    PolyKinds
+    PostfixOperators
+    QuasiQuotes
+    RankNTypes
+    RecordWildCards
+    ScopedTypeVariables
+    StandaloneDeriving
+    StandaloneKindSignatures
+    StrictData
+    TemplateHaskell
+    TupleSections
+    TypeApplications
+    TypeFamilies
+    TypeOperators
+    TypeSynonymInstances
+
+  ghc-options:
+    -Wall -Wincomplete-uni-patterns -Wcompat
+    -Wincomplete-record-updates -Wmissing-home-modules
+    -Wmissing-export-lists -Wredundant-constraints
+
+executable figure-solver
+  import:         lang
+  hs-source-dirs: cmd/figure-solver
+  main-is:        Main.hs
+
+  -- cabal-fmt: expand cmd/figure-solver -Main
+  other-modules:
+  build-depends:
+    , megaparsec            ^>=9.2.1
+    , optparse-applicative  ^>=0.17.0.0
