@@ -103,19 +103,19 @@ nextSteps (Puzzle p) = catMaybeSnd $ zip [0 .. 4] $ fmap withoutBottomTile [0 ..
     connectedTiles :: Position -> Maybe (Set Position)
     connectedTiles pos = do
       tile <- join $ Map.lookup pos p
-      pure $ executingState mempty $ runMaybeT $ connectedTilesR tile pos
+      traceShowWith (\ts -> "connected tiles: " <> show ts) $ executingStateT mempty $ connectedTilesR tile pos
 
-    connectedTilesR :: Tile -> Position -> MaybeT (State (Set Position)) ()
+    connectedTilesR :: Tile -> Position -> StateT (Set Position) Maybe ()
     connectedTilesR orig pos = do
+      -- tile <- lift $ Map.lookup pos p
       tile <-
         traceShowWith (\t -> "tile: " <> show t)
-          <<$>> hoistMaybe
+          <<$>> lift
           $ join $
             traceShowWith (\r -> "lookup result: " <> show r) $
               Map.lookup
                 (traceShowWith (\l -> "lookup: " <> show l) pos)
                 p
-      -- tile <- traceShowWith (\t -> "tile: " <> show t) <<$>> lift $ join $ Map.lookup pos p
       guard $ traceShowWith (\g -> "guard: " <> show g) $ tile == traceShowWith (\o -> "orig: " <> show o) orig
       modify $ Set.insert pos
       seen <- traceShowWith (\s -> "seen: " <> show s) <$> get
