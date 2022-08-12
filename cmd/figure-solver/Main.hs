@@ -4,7 +4,7 @@ import Data.Foldable (foldl)
 import Data.List (groupBy)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
-import Options.Applicative (ParserInfo, execParser, fullDesc, help, helper, info, long, metavar, progDesc, strOption)
+import Options.Applicative (ParserInfo, auto, execParser, fullDesc, help, helper, info, long, metavar, option, progDesc, strOption)
 import Options.Applicative qualified as Flags
 import Relude hiding (show)
 import Relude.Unsafe qualified as Unsafe
@@ -12,21 +12,23 @@ import Text.Megaparsec (Parsec, eof, errorBundlePretty, runParser)
 import Text.Megaparsec.Char (char, eol)
 import Text.Show (Show (show))
 
-newtype Options = Options
+data Options = Options
   { puzzleFile :: FilePath
+  , moves :: Int
   }
 
 optionsP :: Flags.Parser Options
 optionsP =
   Options
     <$> strOption (long "puzzle" <> metavar "FILE" <> help "File path to puzzle input")
+    <*> option auto (long "moves" <> metavar "INT" <> help "Number of moves left")
 
 argparser :: ParserInfo Options
 argparser = info (optionsP <**> helper) (fullDesc <> progDesc "Solve a figure.game puzzle")
 
 main :: IO ()
 main = do
-  Options{puzzleFile} <- execParser argparser
+  Options{puzzleFile, moves} <- execParser argparser
   parsed <- runParser puzzleP puzzleFile <$> readFileText puzzleFile
   puzzle <- case parsed of
     Right puzzle -> pure puzzle
@@ -34,7 +36,7 @@ main = do
   print puzzle
   putLn
   traverse_ (printStep puzzle) $ nextSteps puzzle
-  print $ viaNonEmpty head $ sortOn length $ solutions puzzle
+  print $ fromMaybe (error "puzzle has no solution") $ viaNonEmpty head $ sortOn length $ solutions moves puzzle
   where
     putLn = putStrLn ""
 
@@ -144,5 +146,16 @@ nextSteps (Puzzle p) = catMaybeSnd $ zip [0 .. 4] $ fmap withoutBottomTile [0 ..
             (g, 0 :: Int)
             [(col, row) | row <- [0 .. 4]]
 
-solutions :: Puzzle -> [[Int]]
-solutions = undefined
+type Moves = [(Int, Puzzle)]
+
+solutions :: Int -> Puzzle -> [Moves]
+solutions limit = fmap reverse . solutionsR []
+  where
+    solutionsR :: Moves -> Puzzle -> [Moves]
+    solutionsR prev p
+      | length prev > limit = []
+      | solved p = [prev]
+      | otherwise = concatMap (\(m, p') -> solutionsR ((m, p') : prev) p') $ nextSteps p
+
+    solved :: Puzzle -> Bool
+    solved (Puzzle s) = all isNothing s
