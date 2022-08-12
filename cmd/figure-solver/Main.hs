@@ -94,42 +94,55 @@ nextSteps (Puzzle p) = catMaybeSnd $ zip [0 .. 4] $ fmap withoutBottomTile [0 ..
 
     withoutBottomTile :: Int -> Maybe Puzzle
     withoutBottomTile i = do
+      -- Get removed tile.
+      let toRemove = (i, 0)
+      tile <- join $ Map.lookup toRemove p
       -- Find tiles to remove.
-      connected <- connectedTiles (i, 0)
+      let connected = connectedTiles tile toRemove
       -- Remove connected tiles.
-      pure $ Puzzle $ foldl (\p' pos -> Map.insert pos Nothing p') p connected
-    -- TODO: Shift tiles with gravity.
+      let removed = Puzzle $ foldl (\p' pos -> Map.insert pos Nothing p') p connected
+      -- Shift tiles with gravity.
+      pure $ applyGravity removed
 
-    connectedTiles :: Position -> Maybe (Set Position)
-    connectedTiles pos = do
-      tile <- join $ Map.lookup pos p
-      traceShowWith (\ts -> "connected tiles: " <> show ts) $ pure $ executingState mempty $ connectedTilesR tile pos
+    connectedTiles :: Tile -> Position -> Set Position
+    connectedTiles tile pos = executingState mempty $ connectedTilesR tile pos
 
     connectedTilesR :: Tile -> Position -> State (Set Position) ()
     connectedTilesR orig pos = do
-      let tile =
-            traceShowWith (\t -> "tile: " <> show t)
-              <<$>> join
-              $ traceShowWith (\r -> "lookup result: " <> show r) $
-                Map.lookup
-                  (traceShowWith (\l -> "lookup: " <> show l) pos)
-                  p
+      let tile = join $ Map.lookup pos p
       case tile of
         Just t -> do
-          if traceShowWith (\g -> "guard: " <> show g) $ t == traceShowWith (\o -> "orig: " <> show o) orig
+          if t == orig
             then do
               modify $ Set.insert pos
-              seen <- traceShowWith (\s -> "seen: " <> show s) <$> get
+              seen <- get
               traverse_ (connectedTilesR orig) $
-                traceShowWith (\r -> "recurse to: " <> show r) $
-                  filter (not . (`Set.member` seen)) $
-                    traceShowWith (\a -> "adjacents: " <> show a) $
-                      adjacents pos
+                filter (not . (`Set.member` seen)) $
+                  adjacents pos
             else pass
         Nothing -> pass
 
     adjacents :: Position -> [Position]
     adjacents (x, y) = [(x + d, y) | d <- [-1, 1]] ++ [(x, y + d) | d <- [-1, 1]]
+
+    applyGravity :: Puzzle -> Puzzle
+    applyGravity g = foldl applyGravityCol g [0 .. 4]
+
+    -- Scan upwards from the bottom.
+    -- Each empty space adds to the current "gap".
+    -- Each tile falls by the current "gap" amount when it's reached.
+    applyGravityCol :: Puzzle -> Int -> Puzzle
+    applyGravityCol (Puzzle g) col =
+      Puzzle $
+        fst $
+          foldl
+            ( \(g', gap) pos@(x, y) -> case Map.lookup pos g of
+                Just (Just t) -> (Map.insert (x, y - gap) (Just t) $ Map.insert pos Nothing g', gap)
+                Just Nothing -> (g', gap + 1)
+                Nothing -> error "impossible: applyGravityCol out-of-bounds"
+            )
+            (g, 0 :: Int)
+            [(col, row) | row <- [0 .. 4]]
 
 solutions :: Puzzle -> [[Int]]
 solutions = undefined
