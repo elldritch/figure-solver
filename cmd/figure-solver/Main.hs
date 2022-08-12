@@ -4,6 +4,7 @@ import Data.Foldable (foldl)
 import Data.List (groupBy)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
+import Data.Text (replace)
 import Options.Applicative (ParserInfo, auto, execParser, fullDesc, help, helper, info, long, metavar, option, progDesc, strOption)
 import Options.Applicative qualified as Flags
 import Relude hiding (show)
@@ -33,19 +34,41 @@ main = do
   puzzle <- case parsed of
     Right puzzle -> pure puzzle
     Left err -> putStrLn (errorBundlePretty err) >> exitFailure
-  print puzzle
+
+  putStrLn "Solving puzzle:"
+  putTextLn $ showPuzzle puzzle
   putLn
-  traverse_ (printStep puzzle) $ nextSteps puzzle
-  print $ fromMaybe (error "puzzle has no solution") $ viaNonEmpty head $ sortOn length $ solutions moves puzzle
+
+  putStrLn "Solution:"
+  printMoves puzzle $
+    fromMaybe (error "puzzle has no solution") $
+      viaNonEmpty head $
+        sortOn length $ solutions moves puzzle
   where
+    putLn :: IO ()
     putLn = putStrLn ""
 
-    printStep :: Puzzle -> (Int, Puzzle) -> IO ()
-    printStep (Puzzle orig) (i, p) = do
-      let tile = Unsafe.fromJust $ Unsafe.fromJust $ Map.lookup (i, 0) orig
+    printMoves :: Puzzle -> [(Int, Puzzle)] -> IO ()
+    printMoves p moves = void $ foldlM printMovesF p moves
+
+    printMovesF :: Puzzle -> (Int, Puzzle) -> IO Puzzle
+    printMovesF (Puzzle prev) (i, p) = do
+      let tile = Unsafe.fromJust $ Unsafe.fromJust $ Map.lookup (i, 0) prev
       putStrLn $ show i <> ": " <> show tile
-      print p
+      putTextLn $ showPuzzle p
+      putStrLn $ " " <> replicate i ' ' <> "^"
       putLn
+      pure p
+
+    showPuzzle :: Puzzle -> Text
+    showPuzzle p =
+      "+-----+\n"
+        <> "|"
+        <> shown
+        <> "|\n"
+        <> "+-----+"
+      where
+        shown = replace "\n" "|\n|" $ toText $ show p
 
 type Parser = Parsec Void Text
 
