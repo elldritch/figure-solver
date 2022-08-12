@@ -103,17 +103,27 @@ nextSteps (Puzzle p) = catMaybeSnd $ zip [0 .. 4] $ fmap withoutBottomTile [0 ..
     connectedTiles :: Position -> Maybe (Set Position)
     connectedTiles pos = do
       tile <- join $ Map.lookup pos p
-      executingStateT mempty $ connectedTilesR tile pos
+      pure $ executingState mempty $ runMaybeT $ connectedTilesR tile pos
 
-    connectedTilesR :: Tile -> Position -> StateT (Set Position) Maybe ()
+    connectedTilesR :: Tile -> Position -> MaybeT (State (Set Position)) ()
     connectedTilesR orig pos = do
-      tile <- traceShowWith (\t -> "tile: " <> show t) <<$>> lift $ join $ Map.lookup pos p
+      tile <-
+        traceShowWith (\t -> "tile: " <> show t)
+          <<$>> hoistMaybe
+          $ join $
+            traceShowWith (\r -> "lookup result: " <> show r) $
+              Map.lookup
+                (traceShowWith (\l -> "lookup: " <> show l) pos)
+                p
+      -- tile <- traceShowWith (\t -> "tile: " <> show t) <<$>> lift $ join $ Map.lookup pos p
       guard $ traceShowWith (\g -> "guard: " <> show g) $ tile == traceShowWith (\o -> "orig: " <> show o) orig
       modify $ Set.insert pos
       seen <- traceShowWith (\s -> "seen: " <> show s) <$> get
       traverse_ (connectedTilesR orig) $
-        filter (not . (`Set.member` seen)) $
-          traceShowWith (\a -> "adjacents: " <> show a) $ adjacents pos
+        traceShowWith (\r -> "recurse to: " <> show r) $
+          filter (not . (`Set.member` seen)) $
+            traceShowWith (\a -> "adjacents: " <> show a) $
+              adjacents pos
 
     adjacents :: Position -> [Position]
     adjacents (x, y) = [(x + dx, y + dy) | dx <- [-1, 1], dy <- [-1, 1]]
