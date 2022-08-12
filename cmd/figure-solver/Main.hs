@@ -103,30 +103,33 @@ nextSteps (Puzzle p) = catMaybeSnd $ zip [0 .. 4] $ fmap withoutBottomTile [0 ..
     connectedTiles :: Position -> Maybe (Set Position)
     connectedTiles pos = do
       tile <- join $ Map.lookup pos p
-      traceShowWith (\ts -> "connected tiles: " <> show ts) $ executingStateT mempty $ connectedTilesR tile pos
+      traceShowWith (\ts -> "connected tiles: " <> show ts) $ pure $ executingState mempty $ connectedTilesR tile pos
 
-    connectedTilesR :: Tile -> Position -> StateT (Set Position) Maybe ()
+    connectedTilesR :: Tile -> Position -> State (Set Position) ()
     connectedTilesR orig pos = do
-      -- tile <- lift $ Map.lookup pos p
-      tile <-
-        traceShowWith (\t -> "tile: " <> show t)
-          <<$>> lift
-          $ join $
-            traceShowWith (\r -> "lookup result: " <> show r) $
-              Map.lookup
-                (traceShowWith (\l -> "lookup: " <> show l) pos)
-                p
-      guard $ traceShowWith (\g -> "guard: " <> show g) $ tile == traceShowWith (\o -> "orig: " <> show o) orig
-      modify $ Set.insert pos
-      seen <- traceShowWith (\s -> "seen: " <> show s) <$> get
-      traverse_ (connectedTilesR orig) $
-        traceShowWith (\r -> "recurse to: " <> show r) $
-          filter (not . (`Set.member` seen)) $
-            traceShowWith (\a -> "adjacents: " <> show a) $
-              adjacents pos
+      let tile =
+            traceShowWith (\t -> "tile: " <> show t)
+              <<$>> join
+              $ traceShowWith (\r -> "lookup result: " <> show r) $
+                Map.lookup
+                  (traceShowWith (\l -> "lookup: " <> show l) pos)
+                  p
+      case tile of
+        Just t -> do
+          if traceShowWith (\g -> "guard: " <> show g) $ t == traceShowWith (\o -> "orig: " <> show o) orig
+            then do
+              modify $ Set.insert pos
+              seen <- traceShowWith (\s -> "seen: " <> show s) <$> get
+              traverse_ (connectedTilesR orig) $
+                traceShowWith (\r -> "recurse to: " <> show r) $
+                  filter (not . (`Set.member` seen)) $
+                    traceShowWith (\a -> "adjacents: " <> show a) $
+                      adjacents pos
+            else pass
+        Nothing -> pass
 
     adjacents :: Position -> [Position]
-    adjacents (x, y) = [(x + dx, y + dy) | dx <- [-1, 1], dy <- [-1, 1]]
+    adjacents (x, y) = [(x + d, y) | d <- [-1, 1]] ++ [(x, y + d) | d <- [-1, 1]]
 
 solutions :: Puzzle -> [[Int]]
 solutions = undefined
