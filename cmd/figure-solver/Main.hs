@@ -176,9 +176,8 @@ nextSteps (Puzzle puzzle) = catMaybeSnd $ zip [0 .. 4] $ fmap withoutBottomTile 
     connectedTiles tile pos = executingState mempty $ connectedTilesR tile pos
 
     connectedTilesR :: Tile -> Position -> State (Set Position) ()
-    connectedTilesR orig pos = do
-      let tile = join $ Map.lookup pos puzzle
-      case tile of
+    connectedTilesR orig pos =
+      case join $ Map.lookup pos puzzle of
         Just t -> do
           if t == orig
             then do
