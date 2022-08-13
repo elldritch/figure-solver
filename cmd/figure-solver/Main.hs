@@ -42,9 +42,9 @@ argparser = info (optionsP <**> helper) (fullDesc <> progDesc "Solve a figure.ga
 main :: IO ()
 main = do
   Options{source, quiet} <- execParser argparser
-  puzzle@Puzzle{moves} <- case source of
+  (moves, puzzle) <- case source of
     PuzzleFile f -> do
-      parsed <- runParser puzzleP f . decodeUtf8 <$> readFileBS f
+      parsed <- runParser figureP f . decodeUtf8 <$> readFileBS f
       case parsed of
         Right puzzle -> pure puzzle
         Left err -> putStrLn (errorBundlePretty err) >> exitFailure
@@ -60,11 +60,7 @@ main = do
           withObject "puzzle" $ \o -> do
             props <- o .: "props" >>= (.: "pageProps")
             (,) <$> props .: "tiles" <*> props .: "moves"
-      pure $
-        Puzzle
-          { grid = Map.fromList $ zip ((\n -> (n `mod` 5, 4 - n `div` 5)) <$> [0 ..]) $ Just . toTile <$> tiles
-          , moves
-          }
+      pure (moves, Puzzle $ Map.fromList $ zip ((\n -> (n `mod` 5, 4 - n `div` 5)) <$> [0 ..]) $ Just . toTile <$> tiles)
       where
         toTile :: Int -> Tile
         toTile 0 = Green
@@ -81,7 +77,7 @@ main = do
   let solution =
         fromMaybe (error "puzzle has no solution") $
           viaNonEmpty head $
-            sortOn length $ solutions puzzle
+            sortOn length $ solutions moves puzzle
   if quiet
     then print $ fst <$> solution
     else printMoves puzzle solution
@@ -90,10 +86,10 @@ main = do
     putLn = putStrLn ""
 
     printMoves :: Puzzle -> [(Int, Puzzle)] -> IO ()
-    printMoves p moves = void $ foldlM printMovesF p moves
+    printMoves puzzle moves = void $ foldlM printMovesF puzzle moves
 
     printMovesF :: Puzzle -> (Int, Puzzle) -> IO Puzzle
-    printMovesF Puzzle{grid = prev} (i, p) = do
+    printMovesF (Puzzle prev) (i, p) = do
       let tile = Unsafe.fromJust $ Unsafe.fromJust $ Map.lookup (i, 0) prev
       putStrLn $ show i <> ": " <> show tile
       putTextLn $ showPuzzle p
@@ -131,38 +127,33 @@ tileP =
 
 type Position = (Int, Int)
 
-type Grid = Map Position (Maybe Tile)
-
-data Puzzle = Puzzle
-  { moves :: Int
-  , grid :: Grid
-  }
+newtype Puzzle = Puzzle (Map Position (Maybe Tile))
 
 instance Show Puzzle where
-  show Puzzle{grid} =
+  show (Puzzle p) =
     intercalate "\n" $
       reverse $
         fmap (concatMap (showMTile . snd)) $
           groupBy ((==) `on` snd . fst) $
-            sortOn (snd . fst) $ sortOn (fst . fst) $ Map.toList grid
+            sortOn (snd . fst) $ sortOn (fst . fst) $ Map.toList p
     where
       showMTile (Just t) = show t
       showMTile Nothing = " "
 
-puzzleP :: Parser Puzzle
-puzzleP = Puzzle <$> movesP <*> gridP <* eof
+figureP :: Parser (Int, Puzzle)
+figureP = (,) <$> movesP <*> puzzleP <* eof
   where
     movesP :: Parser Int
     movesP = digitChar `manyTill` eol >>= liftEither . readEither
 
-    gridP :: Parser (Map Position (Maybe Tile))
-    gridP = Map.fromList . concat <$> mapM rowP (reverse [0 .. 4])
+    puzzleP :: Parser Puzzle
+    puzzleP = Puzzle . Map.fromList . concat <$> mapM rowP (reverse [0 .. 4])
 
     rowP :: Int -> Parser [(Position, Maybe Tile)]
     rowP row = (zip [(col, row) | col <- [0 ..]]) <$> replicateM 5 (Just <$> tileP) <* eol
 
 nextSteps :: Puzzle -> [(Int, Puzzle)]
-nextSteps p@Puzzle{grid} = catMaybeSnd $ zip [0 .. 4] $ fmap withoutBottomTile [0 .. 4]
+nextSteps (Puzzle puzzle) = catMaybeSnd $ zip [0 .. 4] $ fmap withoutBottomTile [0 .. 4]
   where
     catMaybeSnd :: [(a, Maybe b)] -> [(a, b)]
     catMaybeSnd ((a, Just b) : xs) = (a, b) : catMaybeSnd xs
@@ -173,20 +164,20 @@ nextSteps p@Puzzle{grid} = catMaybeSnd $ zip [0 .. 4] $ fmap withoutBottomTile [
     withoutBottomTile i = do
       -- Get removed tile.
       let toRemove = (i, 0)
-      tile <- join $ Map.lookup toRemove grid
+      tile <- join $ Map.lookup toRemove puzzle
       -- Find tiles to remove.
       let connected = connectedTiles tile toRemove
       -- Remove connected tiles.
-      let removed = foldl (\g' pos -> Map.insert pos Nothing g') grid connected
+      let removed = foldl (\g' pos -> Map.insert pos Nothing g') puzzle connected
       -- Shift tiles with gravity.
-      pure $ p{grid = applyGravity removed}
+      pure $ applyGravity $ Puzzle removed
 
     connectedTiles :: Tile -> Position -> Set Position
     connectedTiles tile pos = executingState mempty $ connectedTilesR tile pos
 
     connectedTilesR :: Tile -> Position -> State (Set Position) ()
     connectedTilesR orig pos = do
-      let tile = join $ Map.lookup pos grid
+      let tile = join $ Map.lookup pos puzzle
       case tile of
         Just t -> do
           if t == orig
@@ -202,37 +193,38 @@ nextSteps p@Puzzle{grid} = catMaybeSnd $ zip [0 .. 4] $ fmap withoutBottomTile [
     adjacents :: Position -> [Position]
     adjacents (x, y) = [(x + d, y) | d <- [-1, 1]] ++ [(x, y + d) | d <- [-1, 1]]
 
-    applyGravity :: Grid -> Grid
-    applyGravity g = foldl applyGravityCol g [0 .. 4]
+    applyGravity :: Puzzle -> Puzzle
+    applyGravity p = foldl applyGravityCol p [0 .. 4]
 
     -- Scan upwards from the bottom.
     -- Each empty space adds to the current "gap".
     -- Each tile falls by the current "gap" amount when it's reached.
-    applyGravityCol :: Grid -> Int -> Grid
-    applyGravityCol g col =
-      fst $
-        foldl
-          ( \(g', gap) pos@(x, y) -> case Map.lookup pos g of
-              Just (Just t) -> (Map.insert (x, y - gap) (Just t) $ Map.insert pos Nothing g', gap)
-              Just Nothing -> (g', gap + 1)
-              Nothing -> error "impossible: applyGravityCol out-of-bounds"
-          )
-          (g, 0 :: Int)
-          [(col, row) | row <- [0 .. 4]]
+    applyGravityCol :: Puzzle -> Int -> Puzzle
+    applyGravityCol (Puzzle p) col =
+      Puzzle $
+        fst $
+          foldl
+            ( \(p', gap) pos@(x, y) -> case Map.lookup pos p of
+                Just (Just t) -> (Map.insert (x, y - gap) (Just t) $ Map.insert pos Nothing p', gap)
+                Just Nothing -> (p', gap + 1)
+                Nothing -> error "impossible: applyGravityCol out-of-bounds"
+            )
+            (p, 0 :: Int)
+            [(col, row) | row <- [0 .. 4]]
 
 type Moves = [(Int, Puzzle)]
 
-solutions :: Puzzle -> [Moves]
-solutions puzzle@Puzzle{moves} = reverse <$> solutionsR [] puzzle
+solutions :: Int -> Puzzle -> [Moves]
+solutions moves = fmap reverse . solutionsR []
   where
     solutionsR :: Moves -> Puzzle -> [Moves]
-    solutionsR prev p
+    solutionsR prev g
       | length prev > moves = []
-      | solved p = [prev]
-      | otherwise = concatMap (\(m, p') -> solutionsR ((m, p') : prev) p') $ nextSteps p
+      | solved g = [prev]
+      | otherwise = concatMap (\(m, g') -> solutionsR ((m, g') : prev) g') $ nextSteps g
 
     solved :: Puzzle -> Bool
-    solved Puzzle{grid = g} = all isNothing g
+    solved (Puzzle p) = all isNothing p
 
 liftEither :: (MonadFail m, ToString l) => Either l r -> m r
 liftEither = \case
