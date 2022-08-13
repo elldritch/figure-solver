@@ -5,101 +5,114 @@
 To use `figure-solver`, create a `.figure` file and pass it to `--puzzle`:
 
 ```bash
-$ cat ./puzzles/45.figure
-GYGPP
-PYPWP
-YYGYP
-WPWYY
-PYWGY
-
-$ cabal run figure-solver -- --puzzle ./puzzles/45.figure --moves 8
-Solving puzzle:
+$ cabal run figure-solver -- --current
+Solving puzzle in 10 moves:
 +-----+
-|GYGPP|
-|PYPWP|
-|YYGYP|
-|WPWYY|
-|PYWGY|
+|PPWWG|
+|PWWGG|
+|YGWPP|
+|PWGWW|
+|PGPGP|
 +-----+
 
 Solution:
 0: P
 +-----+
-| YGPP|
-|GYPWP|
-|PYGYP|
-|YPWYY|
-|WYWGY|
+| PWWG|
+| WWGG|
+|PGWPP|
+|PWGWW|
+|YGPGP|
 +-----+
  ^
-
-0: W
-+-----+
-| YGPP|
-| YPWP|
-|GYGYP|
-|PPWYY|
-|YYWGY|
-+-----+
- ^
-
-4: Y
-+-----+
-| YG  |
-| YP  |
-|GYGPP|
-|PPWWP|
-|YYWGP|
-+-----+
-     ^
-
-2: W
-+-----+
-| Y   |
-| Y   |
-|GYG P|
-|PPPPP|
-|YYGGP|
-+-----+
-   ^
-
-4: P
-+-----+
-|     |
-| Y   |
-| Y   |
-|GYG  |
-|YYGG |
-+-----+
-     ^
 
 0: Y
 +-----+
-|     |
-|     |
-|     |
-|  G  |
-|G GG |
+| PWWG|
+| WWGG|
+| GWPP|
+|PWGWW|
+|PGPGP|
 +-----+
  ^
 
-0: G
+3: G
 +-----+
-|     |
-|     |
-|     |
-|  G  |
-|  GG |
+| PW G|
+| WWWG|
+| GWGP|
+|PWGPW|
+|PGPWP|
 +-----+
- ^
+    ^
 
-2: G
+4: P
 +-----+
-|     |
-|     |
-|     |
-|     |
-|     |
+| PW  |
+| WWWG|
+| GWGG|
+|PWGPP|
+|PGPWW|
++-----+
+     ^
+
+3: W
++-----+
+| PW  |
+| WW  |
+| GWWG|
+|PWGGG|
+|PGPPP|
++-----+
+    ^
+
+2: P
++-----+
+| P   |
+| WW  |
+| GW  |
+|PWWWG|
+|PGGGG|
 +-----+
    ^
+
+1: G
++-----+
+|     |
+| P   |
+| WW  |
+|PGW  |
+|PWWW |
++-----+
+  ^
+
+1: W
++-----+
+|     |
+|     |
+|     |
+|PP   |
+|PG   |
++-----+
+  ^
+
+0: P
++-----+
+|     |
+|     |
+|     |
+|     |
+| G   |
++-----+
+ ^
+
+1: G
++-----+
+|     |
+|     |
+|     |
+|     |
+|     |
++-----+
+  ^
 ```
