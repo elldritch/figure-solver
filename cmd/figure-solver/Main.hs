@@ -1,5 +1,8 @@
 module Main (main) where
 
+import Relude
+import Relude.Unsafe qualified as Unsafe
+
 import Data.Aeson (eitherDecodeStrict, withObject, (.:))
 import Data.Aeson.Types (parseEither)
 import Data.Foldable (foldl)
@@ -10,13 +13,10 @@ import Data.Text (replace)
 import Network.HTTP.Req (GET (..), NoReqBody (NoReqBody), bsResponse, defaultHttpConfig, https, req, responseBody, runReq)
 import Options.Applicative (ParserInfo, execParser, flag', fullDesc, help, helper, info, long, metavar, progDesc, short, strOption, switch)
 import Options.Applicative qualified as Flags
-import Relude hiding (show)
-import Relude qualified as R
-import Relude.Unsafe qualified as Unsafe
 import Text.HTML.TagSoup (innerText, parseTags, sections, (~==))
 import Text.Megaparsec (Parsec, eof, errorBundlePretty, manyTill, runParser)
 import Text.Megaparsec.Char (char, digitChar, eol)
-import Text.Show (Show (show))
+import Text.Show qualified (Show (..))
 
 data PuzzleSource = PuzzleFile FilePath | CurrentPuzzle
 
@@ -67,7 +67,7 @@ main = do
         toTile 1 = Purple
         toTile 2 = Yellow
         toTile 3 = White
-        toTile n = error $ "could not parse tile value: " <> R.show n
+        toTile n = error $ "could not parse tile value: " <> show n
 
   putStrLn $ "Solving puzzle in " <> show moves <> " moves:"
   putTextLn $ showPuzzle puzzle
@@ -105,7 +105,7 @@ main = do
         <> "|\n"
         <> "+-----+"
       where
-        shown = replace "\n" "|\n|" $ R.show p
+        shown = replace "\n" "|\n|" $ show p
 
 type Parser = Parsec Void Text
 
